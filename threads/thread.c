@@ -66,7 +66,6 @@ static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
-static void thread_sleep(int64_t ticks);
 void thread_update_min_tick(void);
 int64_t thread_get_min_tick(void);
 
@@ -100,6 +99,32 @@ static uint64_t gdt[3] = {0,
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+void thread_wakeup(int64_t current_ticks)
+{
+	struct list_elem *e = list_begin(&sleep_list);
+	while (e != list_end(&sleep_list))
+	{
+		struct thread *t = list_entry(e, struct thread, elem);
+
+		if (t->wakeup_tick <= current_ticks)
+		{
+			e = list_remove(e);
+			thread_unblock(t);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	thread_update_min_tick();
+
+	if (!intr_context())
+	{
+		thread_yield();
+	}
+}
 
 void thread_update_min_tick(void)
 {
