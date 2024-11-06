@@ -173,6 +173,11 @@ void thread_sleep(int64_t wakeup_time)
 	struct thread *current_thread = thread_current();
 	enum intr_level old_level = intr_disable();
 
+	if (current_thread == idle_thread)
+	{
+		intr_set_level(old_level);
+		return;
+	}
 	current_thread->wakeup_tick = wakeup_time;
 
 	// TODO: idle 스레드 확인?
@@ -340,7 +345,7 @@ void thread_block(void)
    it may expect that it can atomically unblock a thread and
    update other data. */
 
-void thread_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+bool thread_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	struct thread *thread_a = list_entry(a, struct thread, elem);
 	struct thread *thread_b = list_entry(b, struct thread, elem);
