@@ -13,6 +13,7 @@
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "thread.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -108,12 +109,13 @@ void thread_wakeup(int64_t current_ticks)
 		struct thread *t = list_entry(e, struct thread, elem);
 
 		if (t->wakeup_tick <= current_ticks)
-		{
+		{ // 깨울 스레드가 여러 개일수도 있기 때문에 계속 루프가 돌아감
 			e = list_remove(e);
 			thread_unblock(t);
 		}
 		else
 		{
+			// sleep_list는 정렬이 되어있기 때문에 wakeup_tick이 커지는 순간 더 이상 깨울 스레드 X
 			break;
 		}
 	}
@@ -157,7 +159,7 @@ bool wakeup_tick_comparator(const struct list_elem *a, const struct list_elem *b
 {
 	struct thread *thread_a = list_entry(a, struct thread, elem);
 	struct thread *thread_b = list_entry(b, struct thread, elem);
-	// TODO: ticks
+
 	if (thread_a->wakeup_tick != thread_b->wakeup_tick)
 	{
 		return thread_a->wakeup_tick < thread_b->wakeup_tick;
@@ -173,6 +175,7 @@ void thread_sleep(int64_t wakeup_time)
 
 	current_thread->wakeup_tick = wakeup_time;
 
+	// TODO: idle 스레드 확인?
 	list_insert_ordered(&sleep_list, &current_thread->elem, wakeup_tick_comparator, NULL);
 
 	if (list_entry(list_front(&sleep_list), struct thread, elem)->wakeup_tick < global_min_tick)
@@ -287,27 +290,39 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
+
+	// 스레드가 시작되면 실행될 kernel_thread 함수의 주소를 설정
 	t->tf.rip = (uintptr_t)kernel_thread;
-	t->tf.R.rdi = (uint64_t)function;
-	t->tf.R.rsi = (uint64_t)aux;
-	t->tf.ds = SEL_KDSEG;
-	t->tf.es = SEL_KDSEG;
-	t->tf.ss = SEL_KDSEG;
-	t->tf.cs = SEL_KCSEG;
-	t->tf.eflags = FLAG_IF;
+	t->tf.R.rdi = (uint64_t)function; // kernel_thread에서 첫 번째 인자
+	t->tf.R.rsi = (uint64_t)aux;	  // 두 번째 인자
+	t->tf.ds = SEL_KDSEG;			  // ds: 데이터 세그먼트
+	t->tf.es = SEL_KDSEG;			  // es: 확장 세그먼트
+	t->tf.ss = SEL_KDSEG;			  // ss: 스택 세그먼트
+	t->tf.cs = SEL_KCSEG;			  // cs: 코드 세그먼트
+	t->tf.eflags = FLAG_IF;			  // eflags: 인터럽트 활성화
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	thread_yield_if_lower_priority();
 
 	return tid;
 }
 
-/* Puts the current thread to sleep.  It will not be scheduled
-   again until awoken by thread_unblock().
+void thread_yield_if_lower_priority()
+{
+	if (!list_empty(&ready_list) &&
+		thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+	{
+		thread_yield();
+	}
+}
 
-   This function must be called with interrupts turned off.  It
-   is usually a better idea to use one of the synchronization
-   primitives in synch.h. */
+/* Puts the current thread to sleep.  It will not be scheduled
+	again until awoken by thread_unblock().
+
+	This function must be called with interrupts turned off.  It
+	is usually a better idea to use one of the synchronization
+	primitives in synch.h. */
 void thread_block(void)
 {
 	ASSERT(!intr_context());
@@ -405,7 +420,7 @@ void thread_yield(void)
 
 	old_level = intr_disable();
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, thread_priority_comparator, NULL);
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -414,6 +429,7 @@ void thread_yield(void)
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
+	thread_yield_if_lower_priority();
 }
 
 /* Returns the current thread's priority. */
