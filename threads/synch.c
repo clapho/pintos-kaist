@@ -337,7 +337,7 @@ void cond_broadcast(struct condition *cond, struct lock *lock)
 		cond_signal(cond, lock);
 }
 
-bool sema_compare_priority(const struct list_elem *l, const struct list_elem *s, void *aux UNUSED)
+bool sema_compare_priority(const struct list_elem *l, const struct list_elem *s, void *aux)
 {
 	struct semaphore_elem *l_sema = list_entry(l, struct semaphore_elem, elem);
 	struct semaphore_elem *s_sema = list_entry(s, struct semaphore_elem, elem);
