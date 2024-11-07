@@ -119,6 +119,7 @@ extern bool thread_mlfqs;
 void thread_wakeup(int64_t current_ticks);
 int64_t thread_next_wakeup_tick(void);
 bool wakeup_tick_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void thread_sleep(int64_t ticks);
 void thread_init(void);
 void thread_start(void);
