@@ -30,6 +30,10 @@ bool lock_try_acquire(struct lock *);
 void lock_release(struct lock *);
 bool lock_held_by_current_thread(const struct lock *);
 bool sema_compare_priority(const struct list_elem *l, const struct list_elem *s, void *aux);
+bool thread_compare_donate_priority(const struct list_elem *l, const struct list_elem *s, void *aux);
+void donate_priority();
+void remove_with_lock(struct lock *lock);
+void refresh_priority();
 
 /* Condition variable. */
 struct condition
