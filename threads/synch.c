@@ -209,9 +209,9 @@ void lock_acquire(struct lock *lock)
 	}
 
 	sema_down(&lock->semaphore);
+
 	cur->wait_on_lock = NULL;
 	lock->holder = cur;
-	return;
 }
 
 void donate_priority()
@@ -269,7 +269,7 @@ void lock_release(struct lock *lock)
 		1. 현재 이 lock을 사용하기 위해 나에게 priority를 빌려준 스레드들을 donations에서 제거
 		2. priority 재설정
 	*/
-	remove_with_lock(&lock);
+	remove_with_lock(lock);
 	refresh_priority();
 
 	lock->holder = NULL;
