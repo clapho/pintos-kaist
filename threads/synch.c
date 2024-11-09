@@ -113,11 +113,12 @@ void sema_up(struct semaphore *sema)
 
 	old_level = intr_disable();
 
-	list_sort(&sema->waiters, thread_priority_comparator, NULL);
-
 	if (!list_empty(&sema->waiters))
+	{
+		list_sort(&sema->waiters, thread_priority_comparator, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem));
+	}
 	sema->value++;
 	thread_yield_if_lower_priority(); // unblock된 스레드가 running 스레드보다 우선순위가 높을 수 있음
 	intr_set_level(old_level);
@@ -199,7 +200,7 @@ void lock_acquire(struct lock *lock)
 	struct thread *cur = thread_current();
 
 	// 다른 스레드가 lock을 점유하고 있는 경우
-	if (&lock->holder)
+	if (lock->holder)
 	{
 		cur->wait_on_lock = lock;
 		// 락을 가지고 있는 스레드의 donations에 우선순위 정렬 삽입
@@ -274,6 +275,8 @@ void lock_release(struct lock *lock)
 
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
+	// TODO:필요??
+	// thread_yield_if_lower_priority();
 }
 
 void remove_with_lock(struct lock *lock)
